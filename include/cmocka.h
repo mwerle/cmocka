@@ -58,6 +58,26 @@ int __stdcall IsDebuggerPresent();
 #define CMOCKA_DLLEXTERN // only needed on MSVC compiler when using a DLL
 #endif /* ndef CMOCKA_DLLEXTERN */
 
+#ifndef ARRAY_SIZE
+/** Calculates the number of elements in array \p ARR_
+ *
+ * @param ARR_ An array of fixed size declared using the [] notation.
+ *
+ * Example:
+ * @code{.c}
+ * void myFunc(void) {
+ *     int myArray[42];
+ *     size_t myArrayLen = ARRAY_SIZE(myArray);
+ *     assert(myArrayLen == 42);
+ *
+ *     int *myArray2 = malloc(42 * sizeof(int));
+ *     size_t myArray2Len = ARRAY_SIZE(myArray2); // Illegal call
+ * };
+ * @endcode
+ */
+#define ARRAY_SIZE(ARR_) (sizeof(ARR_)/sizeof((ARR_)[0]))
+#endif /* ndef ARRAY_SIZE */
+
 /**
  * @defgroup cmocka The CMocka API
  *
@@ -2355,6 +2375,9 @@ static inline void _unit_test_dummy(void **state) {
     _unit_test_teardown(test, teardown)
 
 
+/*******************************************************************************
+ * Unit Test setup macros
+*******************************************************************************/
 /** Initializes a CMUnitTest structure. */
 #define cmocka_unit_test(f) { #f, f, NULL, NULL, NULL }
 
@@ -2387,6 +2410,36 @@ static inline void _unit_test_dummy(void **state) {
  * overridden by the initial state defined here.
  */
 #define cmocka_unit_test_prestate_setup_teardown(f, setup, teardown, state) { #f, f, setup, teardown, state }
+
+/*******************************************************************************
+ * Test Groups setup macros MKW
+*******************************************************************************/
+/** Initializes a CMUTestGroup structure. */
+#define cmocka_test_group(f) { #f, f, ARRAY_SIZE(f), NULL, NULL, NULL }
+
+/**
+ * Initialize an array of CMUTestGroup structures with a group setup function
+ * and a group teardown function. Either setup or teardown can be NULL.
+ */
+#define cmocka_test_groupsetup_teardown(f, setup, teardown) { #f, f, ARRAY_SIZE(f), setup, teardown, NULL }
+
+/**
+ * Initialize a CMUTestGroup structure with given initial state. It will be
+ * passed to group setup/teardown functions as an argument later. It can be
+ * used when the group state does not need special initialization or was
+ * initialized already.
+ * This state will also be passed to the test functions within the group.
+ */
+#define cmocka_test_group_prestate(f, state) { #f, f, ARRAY_SIZE(f), NULL, NULL, state }
+
+/**
+ * Initialize a CMUTestGroup structure with given initial state, setup and
+ * teardown function. Any of these values can be NULL. Initial state is passed
+ * later to setup function, or directly to test if none was given.
+ * @note If the group setup function initialized the state already, it won't be
+ * overridden by the initial state defined here.
+ */
+#define cmocka_test_group_prestate_setup_teardown(f, setup, teardown, state) { #f, f, ARRAY_SIZE(f), setup, teardown, state }
 
 #ifdef DOXYGEN
 /**
@@ -2520,6 +2573,24 @@ int cmocka_run_group_tests_name(const char *group_name,
 #else
 # define cmocka_run_group_tests_name(group_name, group_tests, group_setup, group_teardown) \
         _cmocka_run_group_tests(group_name, group_tests, sizeof(group_tests) / sizeof((group_tests)[0]), group_setup, group_teardown)
+#endif
+
+
+#ifdef DOXYGEN
+/**
+ * @brief Run multiple test groups specified by an array of CMTestGroup structures.
+ *
+ * @param[in]  test_groups[]  The array of test groups to execute.
+ *
+ * @return 0 on success, or the number of failed tests.
+ *
+ * @see cmocka_test_group
+ * @see cmocka_test_group_setup_teardown
+ */
+int cmocka_run_test_groups(const struct CMTestGroup test_groups[]);
+#else
+# define cmocka_run_test_groups(test_groups) \
+        _cmocka_run_test_groups(test_groups, ARRAY_SIZE(test_groups))
 #endif
 
 /** @} */
@@ -2807,6 +2878,15 @@ struct CMUnitTest {
     void *initial_state;
 };
 
+struct CMTestGroup {
+    const char *name;
+    const struct CMUnitTest *tests;
+    const size_t number_of_tests;
+    CMFixtureFunction setup_func;
+    CMFixtureFunction teardown_func;
+    void *initial_state;
+};
+
 /* Location within some source code. */
 typedef struct SourceLocation {
     const char* file;
@@ -3030,6 +3110,9 @@ int _cmocka_run_group_tests(const char *group_name,
                             const size_t num_tests,
                             CMFixtureFunction group_setup,
                             CMFixtureFunction group_teardown);
+
+int _cmocka_run_groups(const struct CMTestGroup *const groups,
+                       const size_t num_groups);
 
 /* Standard output and error print methods. */
 void print_message(const char* const format, ...) CMOCKA_PRINTF_ATTRIBUTE(1, 2);

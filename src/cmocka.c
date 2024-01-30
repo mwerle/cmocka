@@ -3659,3 +3659,29 @@ int _cmocka_run_group_tests(const char *group_name,
 
     return (int)(total_failed + total_errors);
 }
+
+int _cmocka_run_test_groups(const struct CMTestGroup * const groups,
+                            const size_t num_groups,)
+{
+    size_t i = 0;
+    size_t total_failed = 0;
+
+    if (groups == NULL || num_groups == 0) {
+        return 0;
+    }
+
+    /* TODO: run tests properly instead of just calling the group function */
+
+    for( i = 0; i < num_groups; i++ ) {
+        struct CMTestGroup *pGroup = &groups[i];
+        if (pGroup->name == NULL || pGroup->tests == NULL ||
+            pGroup->number_of_tests == 0) {
+            continue;
+        }
+        total_failed += _cmocka_run_group_tests(pGroup->name, pGroup->tests,
+                                                pGroup->number_of_tests,
+                                                pGroup->setup_func,
+                                                pGroup->teardown_func);
+    }
+    return total_failed;
+}
